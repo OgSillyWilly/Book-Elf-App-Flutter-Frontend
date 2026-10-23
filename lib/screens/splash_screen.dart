@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import '../service_locator.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
-  final VoidCallback onInitializationComplete;
+  /// Called once the splash is done; the argument says whether a valid session exists.
+  final ValueChanged<bool> onInitializationComplete;
   final ThemeMode themeMode;
 
   const SplashScreen({
@@ -46,10 +48,32 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Wait for animation to complete, then navigate
-    Timer(const Duration(milliseconds: 2500), () {
-      widget.onInitializationComplete();
-    });
+    // Wait for the animation and the session check, then navigate
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final minimumSplash = Future.delayed(const Duration(milliseconds: 2500));
+    final authenticated = await _hasValidSession();
+    await minimumSplash;
+    if (mounted) widget.onInitializationComplete(authenticated);
+  }
+
+  Future<bool> _hasValidSession() async {
+    final auth = getIt<AuthService>();
+    final token = await auth.token;
+    if (token == null || token.isEmpty) return false;
+
+    try {
+      await auth.currentUser().timeout(const Duration(seconds: 10));
+      return true;
+    } on AuthException catch (e) {
+      // A 401 means the token is invalid (already cleared by AuthService).
+      return e.statusCode != 401;
+    } catch (_) {
+      // Offline or slow server: keep the session and let the screens report errors.
+      return true;
+    }
   }
 
   @override

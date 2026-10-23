@@ -5,9 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import '../config/app_config.dart';
+import '../service_locator.dart';
+import 'authenticated_client.dart';
 
 class ImageUploadService {
   static String get _baseUrl => AppConfig.apiBaseUrl;
+  static AuthenticatedClient get _client => getIt<AuthenticatedClient>();
 
   // Determine mime type from filename
   static String _getMimeType(String filename) {
@@ -52,7 +55,7 @@ class ImageUploadService {
         contentType: mediaType,
       ));
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await _client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -89,7 +92,7 @@ class ImageUploadService {
         contentType: mediaType,
       ));
 
-      final streamedResponse = await request.send();
+      final streamedResponse = await _client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -110,7 +113,7 @@ class ImageUploadService {
     try {
       final uri = Uri.parse('$_baseUrl/books/$bookId/cover');
       
-      final response = await http.delete(uri);
+      final response = await _client.delete(uri);
 
       if (response.statusCode != 200) {
         throw Exception('Delete failed: ${response.statusCode}');

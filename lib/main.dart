@@ -1,9 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/books_list_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'config/app_config.dart';
 import 'service_locator.dart';
+import 'services/auth_service.dart';
+import 'utils/image_cache_utils.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,11 +35,39 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.light;
   bool _isInitialized = false;
+  bool _isAuthenticated = false;
+  StreamSubscription<void>? _sessionExpiredSubscription;
+  StreamSubscription<void>? _loggedOutSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadThemeMode();
+    _sessionExpiredSubscription =
+        AuthService.sessionExpired.listen((_) => _onSessionExpired());
+    _loggedOutSubscription =
+        AuthService.loggedOut.listen((_) => _showLogin());
+  }
+
+  @override
+  void dispose() {
+    _sessionExpiredSubscription?.cancel();
+    _loggedOutSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Global 401 handling: back to the login screen with an explanation.
+  void _onSessionExpired() {
+    _showLogin();
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      const SnackBar(content: Text('Je sessie is verlopen. Log opnieuw in.')),
+    );
+  }
+
+  void _showLogin() {
+    clearImageCaches();
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    if (mounted) setState(() => _isAuthenticated = false);
   }
 
   Future<void> _loadThemeMode() async {
@@ -42,12 +78,16 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void _onInitializationComplete() {
+  void _onInitializationComplete(bool authenticated) {
     setState(() {
       _isInitialized = true;
+      _isAuthenticated = authenticated;
     });
   }
 
+  void _onAuthenticated() {
+    setState(() => _isAuthenticated = true);
+  }
   Future<void> toggleTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final isDark = _themeMode == ThemeMode.dark;
@@ -60,20 +100,24 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'Book Elf',
       debugShowCheckedModeBanner: false, // Verberg DEBUG banner
       themeMode: _themeMode,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
-      home: _isInitialized
-          ? BooksListScreen(
-              onThemeToggle: toggleTheme,
-              isDarkMode: _themeMode == ThemeMode.dark,
-            )
-          : SplashScreen(
+      home: !_isInitialized
+          ? SplashScreen(
               onInitializationComplete: _onInitializationComplete,
               themeMode: _themeMode,
-            ),
+            )
+          : !_isAuthenticated
+              ? LoginScreen(onAuthenticated: _onAuthenticated)
+              : BooksListScreen(
+                  onThemeToggle: toggleTheme,
+                  isDarkMode: _themeMode == ThemeMode.dark,
+                ),
     );
   }
 

@@ -6,11 +6,19 @@ import '../../models/book.dart';
 import '../../models/series.dart';
 import '../../models/reading_challenge.dart';
 import '../../config/app_config.dart';
+import '../../service_locator.dart';
+import '../api_exceptions.dart';
+import '../authenticated_client.dart';
 import '../interfaces/i_data_service.dart';
 
 /// API implementation of IDataService
 /// Communicates with Laravel backend via REST API
 class ApiDataService implements IDataService {
+  ApiDataService({http.Client? client})
+      : _client = client ?? getIt<AuthenticatedClient>();
+
+  final http.Client _client;
+
   // Get API base URL from settings or AppConfig default
   static Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
@@ -35,7 +43,7 @@ class ApiDataService implements IDataService {
   Future<bool> testConnection() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/books'),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 5));
@@ -56,7 +64,7 @@ class ApiDataService implements IDataService {
       
       // Fetch all pages
       do {
-        final response = await http.get(
+        final response = await _client.get(
           Uri.parse('$url/books?page=$currentPage'),
           headers: {'Accept': 'application/json'},
         ).timeout(timeout);
@@ -104,7 +112,7 @@ class ApiDataService implements IDataService {
       
       // Fetch all pages
       do {
-        final response = await http.get(
+        final response = await _client.get(
           Uri.parse('$url/books?page=$currentPage'),
           headers: {'Accept': 'application/json'},
         ).timeout(timeout);
@@ -147,7 +155,7 @@ class ApiDataService implements IDataService {
   Future<Book> createBook(Map<String, dynamic> bookData) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$url/books'),
         headers: {
           'Content-Type': 'application/json',
@@ -158,6 +166,8 @@ class ApiDataService implements IDataService {
 
       if (response.statusCode == 201) {
         return Book.fromJson(json.decode(response.body));
+      } else if (response.statusCode == 422) {
+        throw ValidationException.fromBody(response.body);
       } else {
         throw Exception('Kon boek niet aanmaken: ${response.body}');
       }
@@ -170,13 +180,15 @@ class ApiDataService implements IDataService {
   Future<Book> getBook(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/books/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
 
       if (response.statusCode == 200) {
         return Book.fromJson(json.decode(response.body));
+      } else if (response.statusCode == 404) {
+        throw const NotFoundException('Boek niet gevonden');
       } else {
         throw Exception('Kon boek niet ophalen: ${response.body}');
       }
@@ -189,7 +201,7 @@ class ApiDataService implements IDataService {
   Future<Book> updateBook(int id, Map<String, dynamic> bookData) async {
     final url = await getBaseUrl();
     try {
-      final response = await http.put(
+      final response = await _client.put(
         Uri.parse('$url/books/$id'),
         headers: {
           'Content-Type': 'application/json',
@@ -200,11 +212,17 @@ class ApiDataService implements IDataService {
 
       if (response.statusCode == 200) {
         return Book.fromJson(json.decode(response.body));
+      } else if (response.statusCode == 404) {
+        throw const NotFoundException('Boek niet gevonden');
+      } else if (response.statusCode == 422) {
+        throw ValidationException.fromBody(response.body);
       } else {
         throw Exception('Kon boek niet bijwerken: ${response.body}');
       }
     } on TimeoutException {
       throw Exception('Verbinding timeout - controleer of de server draait');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       // Meer gedetailleerde error info voor debugging
       throw Exception('Update mislukt: ${e.toString()}\n\nURL: $url/books/$id\n\nOm dit op te lossen:\n- Open Chrome DevTools (F12)\n- Ga naar Network tab\n- Probeer opnieuw\n- Check of er een CORS error is (rood)\n\nOf gebruik een mobiele versie/emulator waar dit probleem niet optreedt.');
@@ -214,7 +232,7 @@ class ApiDataService implements IDataService {
   Future<void> deleteBook(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse('$url/books/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -245,7 +263,7 @@ class ApiDataService implements IDataService {
         ),
       );
 
-      final streamedResponse = await request.send().timeout(importTimeout);
+      final streamedResponse = await _client.send(request).timeout(importTimeout);
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -268,7 +286,7 @@ class ApiDataService implements IDataService {
   Future<List<Book>> getBooksByYear(int year) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/books?year_read=$year'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -303,7 +321,7 @@ class ApiDataService implements IDataService {
   Future<List<Map<String, dynamic>>> getReadingHistory() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/books/reading-history'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -332,7 +350,7 @@ class ApiDataService implements IDataService {
         uri += '?search=$search';
       }
       
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(uri),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -363,13 +381,15 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getSeriesWithProgress(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/series/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
+      } else if (response.statusCode == 404) {
+        throw const NotFoundException('Serie niet gevonden');
       } else {
         throw Exception('Server antwoordde met status ${response.statusCode}');
       }
@@ -381,7 +401,7 @@ class ApiDataService implements IDataService {
   Future<Series> createSeries(Map<String, dynamic> seriesData) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$url/series'),
         headers: {
           'Content-Type': 'application/json',
@@ -403,7 +423,7 @@ class ApiDataService implements IDataService {
   Future<Series> updateSeries(int id, Map<String, dynamic> seriesData) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.put(
+      final response = await _client.put(
         Uri.parse('$url/series/$id'),
         headers: {
           'Content-Type': 'application/json',
@@ -425,7 +445,7 @@ class ApiDataService implements IDataService {
   Future<void> deleteSeries(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse('$url/series/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -443,7 +463,7 @@ class ApiDataService implements IDataService {
   Future<List<ReadingChallenge>> getReadingChallenges() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/reading-challenges'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -464,7 +484,7 @@ class ApiDataService implements IDataService {
   Future<ReadingChallenge?> getActiveChallenge() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/reading-challenges/active'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -487,13 +507,15 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getChallengeWithDetails(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/reading-challenges/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
+      } else if (response.statusCode == 404) {
+        throw const NotFoundException('Challenge niet gevonden');
       } else {
         throw Exception('Server antwoordde met status ${response.statusCode}');
       }
@@ -505,7 +527,7 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getChallengeSuggestions(int challengeId, {int limit = 10}) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/reading-challenges/$challengeId/suggestions?limit=$limit'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -523,7 +545,7 @@ class ApiDataService implements IDataService {
   Future<ReadingChallenge> createChallenge(Map<String, dynamic> challengeData) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$url/reading-challenges'),
         headers: {
           'Content-Type': 'application/json',
@@ -545,7 +567,7 @@ class ApiDataService implements IDataService {
   Future<ReadingChallenge> updateChallenge(int id, Map<String, dynamic> challengeData) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.put(
+      final response = await _client.put(
         Uri.parse('$url/reading-challenges/$id'),
         headers: {
           'Content-Type': 'application/json',
@@ -567,7 +589,7 @@ class ApiDataService implements IDataService {
   Future<void> deleteChallenge(int id) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.delete(
+      final response = await _client.delete(
         Uri.parse('$url/reading-challenges/$id'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -585,7 +607,7 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getStatisticsOverview() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/overview'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -605,7 +627,7 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getAuthorProgress(String author) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/author-progress?author=${Uri.encodeComponent(author)}'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -628,7 +650,7 @@ class ApiDataService implements IDataService {
         uri += '?year=$year';
       }
       
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(uri),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -646,7 +668,7 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getStatisticsByType() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/by-type'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -664,7 +686,7 @@ class ApiDataService implements IDataService {
   Future<List<Book>> getTopRatedBooks({int limit = 10}) async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/top-rated?limit=$limit'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -683,7 +705,7 @@ class ApiDataService implements IDataService {
   Future<List<Map<String, dynamic>>> getYearlyHistory() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/yearly-history'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);
@@ -702,7 +724,7 @@ class ApiDataService implements IDataService {
   Future<Map<String, dynamic>> getSeriesProgress() async {
     try {
       final url = await getBaseUrl();
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$url/statistics/series-progress'),
         headers: {'Accept': 'application/json'},
       ).timeout(timeout);

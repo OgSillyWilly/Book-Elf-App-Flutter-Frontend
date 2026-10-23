@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/settings_helper.dart';
+import '../widgets/account_card.dart';
 import '../widgets/server_connection_card.dart';
 import '../widgets/google_books_api_key_card.dart';
 import '../widgets/help_card.dart';
@@ -88,6 +89,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const AccountCard(),
+          const SizedBox(height: 16),
           ServerConnectionCard(
             urlController: _urlController,
             onSave: _saveUrl,
