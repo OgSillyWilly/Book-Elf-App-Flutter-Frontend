@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../config/app_config.dart';
-import '../services/api_service.dart';
+import '../services/implementations/api_data_service.dart';
 
 class ServerConnectionCard extends StatefulWidget {
   final TextEditingController urlController;
@@ -18,7 +18,7 @@ class ServerConnectionCard extends StatefulWidget {
 }
 
 class _ServerConnectionCardState extends State<ServerConnectionCard> {
-  final _apiService = ApiService();
+  final _apiService = ApiDataService();
   bool _isTestingConnection = false;
   String? _connectionResult;
 

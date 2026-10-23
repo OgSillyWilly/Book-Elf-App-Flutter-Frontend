@@ -16,8 +16,6 @@ lib/
       i_data_service.dart           # Single interface for all data operations
     implementations/
       api_data_service.dart         # Laravel API implementation
-      local_data_service.dart       # SQLite implementation (stub)
-    api_service.dart                # Backward compatibility layer
     google_books_service.dart       # External service
     image_upload_service.dart       # Utility service
 ```
@@ -46,25 +44,6 @@ class _MyScreenState extends State<MyScreen> {
   
   Future<void> _loadBooks() async {
     final books = await _dataService.getBooks();
-    // ...
-  }
-}
-```
-
-### Old Way (Still Works)
-
-```dart
-import '../services/api_service.dart';
-
-class MyScreen extends StatefulWidget {
-  // ...
-}
-
-class _MyScreenState extends State<MyScreen> {
-  final ApiService _apiService = ApiService();
-  
-  Future<void> _loadBooks() async {
-    final books = await _apiService.getBooks();
     // ...
   }
 }
@@ -136,14 +115,14 @@ import '../services/interfaces/i_data_service.dart';
 1. Gradually migrate screens to use GetIt
 2. Implement LocalDataService with SQLite
 3. Add settings toggle to switch modes
-4. Remove api_service.dart compatibility layer
 
 ## Status
 
 - ✅ GetIt configured
 - ✅ IDataService interface created
 - ✅ ApiDataService implemented
-- ✅ LocalDataService stub created
+- ✅ ApiService compatibility alias removed
+- ⏳ LocalDataService not implemented
 - ⏳ Screen migration (0/11 screens)
 - ⏳ SQLite implementation
 - ⏳ Settings UI for mode switching

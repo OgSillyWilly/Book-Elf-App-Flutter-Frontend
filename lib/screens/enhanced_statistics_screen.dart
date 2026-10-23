@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/book.dart';
 import '../services/interfaces/i_data_service.dart';
 import '../service_locator.dart';
