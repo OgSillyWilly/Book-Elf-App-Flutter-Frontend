@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/book_types.dart';
 import '../models/book.dart';
+import '../models/series.dart';
+import '../services/api_exceptions.dart';
 import '../services/interfaces/i_data_service.dart';
 import '../service_locator.dart';
 import '../services/google_books_service.dart';
@@ -52,7 +54,18 @@ class _BookFormScreenState extends State<BookFormScreen> {
   bool _showSearchResults = false;
   String _selectedLanguage = 'nl';
   String _searchType = 'title'; // title, author, isbn, all
+  int? _seriesId;
+  List<Series> _seriesOptions = [];
+  String? _seriesError;
 
+  Future<void> _loadSeriesOptions() async {
+    try {
+      final series = await _dataService.getSeries();
+      if (mounted) setState(() => _seriesOptions = series);
+    } catch (_) {
+      // The selector stays empty; the book keeps its current series_id.
+    }
+  }
   Future<void> _selectDate(TextEditingController controller) async {
     DateTime? initialDate;
     final DateTime minDate = DateTime(1900);
@@ -89,7 +102,9 @@ class _BookFormScreenState extends State<BookFormScreen> {
   void initState() {
     super.initState();
     _dataService = getIt<IDataService>();
+    _loadSeriesOptions();
     if (widget.book != null) {
+      _seriesId = widget.book!.seriesId;
       _titleController.text = widget.book!.title;
       _authorController.text = widget.book!.author;
       _isbnController.text = widget.book!.isbn ?? '';
@@ -464,6 +479,7 @@ class _BookFormScreenState extends State<BookFormScreen> {
         'start_date': DateFormatter.formatForApiOrNull(_startDateController.text),
         'end_date': DateFormatter.formatForApiOrNull(_endDateController.text),
         'year_read': yearRead,
+        'series_id': _seriesId,
       };
 
       if (widget.book == null) {
@@ -512,6 +528,15 @@ class _BookFormScreenState extends State<BookFormScreen> {
 
       if (mounted) {
         Navigator.pop(context, true);
+      }
+    } on ValidationException catch (e) {
+      final seriesError = e.firstError('series_id');
+      setState(() {
+        _isLoading = false;
+        _seriesError = seriesError;
+      });
+      if (mounted && seriesError == null) {
+        showErrorDialog(context, 'Controleer de invoer', e.message);
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -658,6 +683,38 @@ class _BookFormScreenState extends State<BookFormScreen> {
                         return 'Auteur is verplicht';
                       }
                       return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<int?>(
+                    key: ValueKey('series-${_seriesOptions.length}-$_seriesError'),
+                    initialValue: _seriesOptions.any((s) => s.id == _seriesId)
+                        ? _seriesId
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: 'Serie',
+                      filled: true,
+                      border: const OutlineInputBorder(),
+                      errorText: _seriesError,
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Geen serie'),
+                      ),
+                      ..._seriesOptions.map(
+                        (s) => DropdownMenuItem<int?>(
+                          value: s.id,
+                          child: Text(s.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _seriesId = value;
+                        _seriesError = null;
+                      });
                     },
                   ),
                   const SizedBox(height: 16),

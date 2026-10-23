@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/series.dart';
 import '../services/interfaces/i_data_service.dart';
+import '../services/api_exceptions.dart';
 import '../service_locator.dart';
 import '../utils/error_dialog.dart';
 
@@ -541,6 +542,8 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
         _books = data['series']['books'] ?? [];
         _isLoading = false;
       });
+    } on NotFoundException {
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {

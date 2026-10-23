@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/book.dart';
 import '../services/interfaces/i_data_service.dart';
+import '../services/api_exceptions.dart';
 import '../service_locator.dart';
 import '../widgets/rating_stars.dart';
+import '../widgets/cover_image.dart';
 import 'book_form_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
@@ -43,6 +45,14 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         _currentBook = updatedBook;
         _isLoading = false;
       });
+    } on NotFoundException {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      widget.onBookUpdated?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dit boek bestaat niet meer.')),
+      );
+      Navigator.of(context).pop();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -120,12 +130,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: _currentBook.normalizedCoverUrl != null
-                  ? Image.network(
-                      _currentBook.normalizedCoverUrl!,
+                  ? CoverImage(
+                      imageUrl: _currentBook.normalizedCoverUrl!,
                       width: 120,
                       height: 180,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildPlaceholderCover(),
                     )
                   : _buildPlaceholderCover(),
             ),

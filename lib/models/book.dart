@@ -20,6 +20,7 @@ class Book {
   final String? endDate;
   final int? yearRead;
   final int? rating; // 0-5 stars
+  final int? seriesId;
 
   /// Get the cover URL normalized for the current platform
   /// Converts relative URLs to absolute URLs using the appropriate base URL
@@ -45,6 +46,7 @@ class Book {
     this.endDate,
     this.yearRead,
     this.rating,
+    this.seriesId,
   });
 
   factory Book.fromJson(Map<String, dynamic> json) {
@@ -92,6 +94,7 @@ class Book {
       endDate: json['end_date']?.toString(),
       yearRead: parseIntSafely(json['year_read']),
       rating: parseIntSafely(json['rating']),
+      seriesId: parseIntSafely(json['series_id']),
     );
   }
 
@@ -115,6 +118,7 @@ class Book {
       'end_date': endDate,
       'year_read': yearRead,
       'rating': rating,
+      'series_id': seriesId,
     };
   }
 }

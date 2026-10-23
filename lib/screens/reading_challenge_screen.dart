@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import '../models/reading_challenge.dart';
 import '../models/book.dart';
 import '../services/interfaces/i_data_service.dart';
+import '../services/api_exceptions.dart';
 import '../service_locator.dart';
 import '../utils/error_dialog.dart';
+import '../widgets/cover_image.dart';
 
 class ReadingChallengeScreen extends StatefulWidget {
   const ReadingChallengeScreen({super.key});
@@ -573,17 +575,11 @@ class _ChallengeSuggestionsWidgetState extends State<_ChallengeSuggestionsWidget
                   leading: book.normalizedCoverUrl != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(4),
-                          child: Image.network(
-                            book.normalizedCoverUrl!,
+                          child: CoverImage(
+                            imageUrl: book.normalizedCoverUrl!,
                             width: 40,
                             height: 60,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 40,
-                              height: 60,
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.book),
-                            ),
                           ),
                         )
                       : Container(
@@ -865,6 +861,8 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
         _booksRead = booksData.map((json) => Book.fromJson(json)).toList();
         _isLoading = false;
       });
+    } on NotFoundException {
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -921,17 +919,11 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                                   leading: book.normalizedCoverUrl != null
                                       ? ClipRRect(
                                           borderRadius: BorderRadius.circular(4),
-                                          child: Image.network(
-                                            book.normalizedCoverUrl!,
+                                          child: CoverImage(
+                                            imageUrl: book.normalizedCoverUrl!,
                                             width: 40,
                                             height: 60,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Container(
-                                              width: 40,
-                                              height: 60,
-                                              color: Colors.grey[300],
-                                              child: const Icon(Icons.book),
-                                            ),
                                           ),
                                         )
                                       : Container(
