@@ -180,6 +180,21 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 # Gebruik het eerste IP (bijv. 10.242.187.102)
 ```
 
+## 🔐 Inloggen (authenticatie)
+
+De API gebruikt Laravel Sanctum tokens. Alle data (boeken, series, challenges, statistieken, covers) is per gebruiker; alleen `register` en `login` zijn publiek.
+
+- **Flow:** bij het opstarten controleert de splash screen het opgeslagen token via `GET /user`. Geldig → boekenlijst, anders → loginscherm (met link naar registreren). Offline blijft een opgeslagen sessie behouden.
+- **Token:** opgeslagen met `flutter_secure_storage` (Keychain/Keystore), beheerd door `AuthService` (`lib/services/auth_service.dart`).
+- **Requests:** alle backend-calls lopen via `AuthenticatedClient` en krijgen `Authorization: Bearer <token>` + `Accept: application/json`. Google Books gebruikt een gewone client (het token gaat nooit naar derden).
+- **Covers:** `CoverImage` stuurt het token alleen mee voor `/image-proxy` URLs van de eigen backend.
+- **401:** het token wordt gewist, de cache van afbeeldingen geleegd en de app gaat terug naar het loginscherm.
+- **Uitloggen:** Instellingen → account-kaart → Uitloggen. Dit wist het token en de afbeeldingscache.
+- **Rate limit:** login/registreren staat 10 pogingen per minuut toe (429 → vriendelijke melding).
+- **Web:** de API-CORS-instellingen moeten de `Authorization` header toestaan.
+
+Tests draaien met `flutter test` (let op: `test/widget_test.dart` is de standaard counter-template en faalt nog).
+
 ## ✨ Features
 
 - ✅ Boeken toevoegen/bewerken/verwijderen
