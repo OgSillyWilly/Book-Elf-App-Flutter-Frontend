@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/book.dart';
+import '../widgets/cover_image.dart';
 
 class StatisticsScreen extends StatelessWidget {
   final List<Book> books;
@@ -302,18 +303,11 @@ class StatisticsScreen extends StatelessWidget {
                     leading: book.normalizedCoverUrl != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(4),
-                            child: Image.network(
-                              book.normalizedCoverUrl!,
+                            child: CoverImage(
+                              imageUrl: book.normalizedCoverUrl!,
                               width: 40,
                               height: 60,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                width: 40,
-                                height: 60,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.book, size: 20),
-                              ),
                             ),
                           )
                         : Container(

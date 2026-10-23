@@ -29,3 +29,15 @@ String? normalizeImageUrl(String? url) {
 
   return url;
 }
+
+/// Whether [url] points at the backend's image proxy, which requires the
+/// bearer token. Third-party hosts never match, so the token is not leaked.
+bool isAuthenticatedImageUrl(String url) {
+  final uri = Uri.tryParse(url);
+  final base = Uri.tryParse(AppConfig.apiBaseUrl);
+  if (uri == null || base == null || !uri.hasAuthority) return false;
+
+  return uri.host == base.host &&
+      uri.port == base.port &&
+      uri.path.contains('/image-proxy');
+}

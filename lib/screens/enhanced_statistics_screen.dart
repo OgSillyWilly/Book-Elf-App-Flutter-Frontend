@@ -4,6 +4,7 @@ import '../models/book.dart';
 import '../services/interfaces/i_data_service.dart';
 import '../service_locator.dart';
 import '../utils/error_dialog.dart';
+import '../widgets/cover_image.dart';
 
 class EnhancedStatisticsScreen extends StatefulWidget {
   const EnhancedStatisticsScreen({super.key});
@@ -438,10 +439,11 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> wit
               child: book.normalizedCoverUrl != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: Image.network(
-                        book.normalizedCoverUrl!,
+                      child: CoverImage(
+                        imageUrl: book.normalizedCoverUrl!,
+                        width: 40,
+                        height: 60,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.book),
                       ),
                     )
                   : const Icon(Icons.book),
